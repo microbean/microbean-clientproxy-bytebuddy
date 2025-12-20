@@ -1,1 +1,1 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"m":"org.microbean.clientproxy.bytebuddy","l":"org.microbean.clientproxy.bytebuddy"}];updateSearchResults();
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html","k":"18"},{"m":"org.microbean.clientproxy.bytebuddy","l":"org.microbean.clientproxy.bytebuddy"}];updateSearchResults();
