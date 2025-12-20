@@ -17,12 +17,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.NestingKind;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.RecordComponentElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -45,6 +47,8 @@ import org.microbean.construct.Domain;
 import org.microbean.construct.vm.AccessFlags;
 import org.microbean.construct.vm.Signatures;
 import org.microbean.construct.vm.TypeDescriptors;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * A {@link TypePool.Default} that produces {@link net.bytebuddy.description.type.TypeDescription}s from {@code
@@ -122,7 +126,7 @@ public final class TypeElementTypePool extends TypePool.Default {
     super(cacheProvider == null ? new TypePool.CacheProvider.Simple() : cacheProvider,
           ClassFileLocator.NoOp.INSTANCE, // no locator
           TypePool.Default.ReaderMode.FAST); // irrelevant; doesn't read class files
-    this.domain = Objects.requireNonNull(domain, "domain");
+    this.domain = requireNonNull(domain, "domain");
     this.classFileVersion = classFileVersion == null ? ClassFileVersion.ofThisVm() : classFileVersion;
   }
 
@@ -187,7 +191,7 @@ public final class TypeElementTypePool extends TypePool.Default {
     // Note that we deliberately and I believe properly do not use the two-argument form of
     // domain#typeElement(ModuleElement, CharSequence), since inferring the ModuleElement representing the caller here
     // is all but impossible (except for StackWalker).
-    
+
     // If binaryName is the binary name of a top-level class, this will work just fine because a top level class' binary
     // and canonical names are the same, and canonical names are what domain#typeElement(CharSequence) accepts.
     TypeElement e = this.domain.typeElement(binaryName);
@@ -275,6 +279,7 @@ public final class TypeElementTypePool extends TypePool.Default {
             typeVariableAnnotationTokens(e),
             typeVariableBoundsAnnotationTokens(e),
             annotationTokens(e),
+            moduleToken(domain, e),
             fieldTokens(domain, e),
             methodTokens(domain, e),
             recordComponentTokens(domain, e),
@@ -404,6 +409,28 @@ public final class TypeElementTypePool extends TypePool.Default {
       }
       l.trimToSize();
       return Collections.unmodifiableList(l);
+    }
+
+    private static final ModuleToken moduleToken(final Domain domain, Element e) {
+      while (e != null && e.getKind() != ElementKind.MODULE) {
+        e = e.getEnclosingElement();
+      }
+      if (e == null) {
+        return null;
+      }
+      final ModuleElement m = (ModuleElement)e;
+      // TODO: implement
+      final String name = domain.toString(m.getQualifiedName());
+      final Set<String> packages = Set.copyOf(m.getEnclosedElements()
+                                              .stream()
+                                              .map(p -> domain.toString(((PackageElement)p).getQualifiedName()))
+                                              .toList());
+      final int modifiers = 0; // TODO: not sure what modifiers are expected; looks like maybe just open
+      final String version = null; // ModuleElement does not expose this information
+      final String mainClass = null; // ModuleElement does not expose this information
+
+      // XXX FIXME TODO: finish implementing
+      return null;
     }
 
     private static final List<RecordComponentToken> recordComponentTokens(final Domain domain, final Element e) {

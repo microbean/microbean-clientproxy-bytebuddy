@@ -13,7 +13,7 @@
  */
 
 /**
- * Provides classes and interfaces related to implementing {@linkplain org.microbean.reference.ClientProxy <dfn>client
+ * Provides classes and interfaces related to implementing {@linkplain org.microbean.proxy.Proxy <dfn>client
  * proxies</dfn>} using <a href="https://bytebuddy.net/#/">Byte Buddy</a>.
  *
  * @author <a href="https://about.me/lairdnelson" target="_parent">Laird Nelson</a>

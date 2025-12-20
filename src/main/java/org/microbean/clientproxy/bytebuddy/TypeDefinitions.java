@@ -220,7 +220,7 @@ public final class TypeDefinitions {
   }
 
   private static final boolean generic(final TypeElement te) {
-    // Assumes t is thread safe, e.g. supplied via org.microbean.construct.Domain or similar
+    // Assumes te is thread safe, e.g. supplied via org.microbean.construct.Domain or similar
     return switch (te.getKind()) {
     case CLASS, CONSTRUCTOR, ENUM, INTERFACE, METHOD, RECORD -> !te.getTypeParameters().isEmpty();
     default -> false;

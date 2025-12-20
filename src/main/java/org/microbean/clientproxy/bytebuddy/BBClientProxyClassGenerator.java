@@ -15,7 +15,6 @@ package org.microbean.clientproxy.bytebuddy;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 
 import net.bytebuddy.ByteBuddy;
 
@@ -43,6 +42,8 @@ import net.bytebuddy.implementation.bytecode.assign.Assigner;
 import net.bytebuddy.matcher.ElementMatcher;
 
 import net.bytebuddy.pool.TypePool;
+
+import static java.util.Objects.requireNonNull;
 
 import static net.bytebuddy.description.modifier.Ownership.STATIC;
 import static net.bytebuddy.description.modifier.SyntheticState.SYNTHETIC;
@@ -76,8 +77,8 @@ import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
 import static net.bytebuddy.matcher.ElementMatchers.takesNoArguments;
 
 /**
- * An class generator that uses <a href="https://bytebuddy.net/#/">Byte Buddy</a> to {@linkplain #generate(String,
- * TypeDefinition, Collection) generate} {@linkplain org.microbean.reference.ClientProxy client proxy} classes.
+ * A class generator that uses <a href="https://bytebuddy.net/#/">Byte Buddy</a> to {@linkplain #generate(String,
+ * TypeDefinition, Collection) generate} {@linkplain org.microbean.proxy.Proxy client proxy} classes.
  *
  * @author <a href="https://about.me/lairdnelson" target="_top">Laird Nelson</a>
  */
@@ -94,13 +95,13 @@ public final class BBClientProxyClassGenerator {
    */
   public BBClientProxyClassGenerator(final TypePool typePool) {
     super();
-    this.typePool = Objects.requireNonNull(typePool, "typePool");
+    this.typePool = requireNonNull(typePool, "typePool");
   }
 
   /**
    * Creates and returns a new {@link DynamicType.Unloaded} representing a client proxy class.
    *
-   * @param name the name of the client proxy class; must not be {@code null}; must be a valid Java class <a 
+   * @param name the name of the client proxy class; must not be {@code null}; must be a valid Java class <a
    * href="https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/lang/ClassLoader.html#binary-name">binary
    * name</a>
    *
@@ -117,9 +118,9 @@ public final class BBClientProxyClassGenerator {
                                                 final TypeDefinition superclass,
                                                 final Collection<? extends TypeDefinition> interfaces) {
 
-    // ClientProxy<Superclass>
-    final TypeDescription.Generic clientProxyType =
-      parameterizedType(this.typeDescription("org.microbean.reference.ClientProxy"),
+    // Proxy<Superclass>
+    final TypeDescription.Generic proxyType =
+      parameterizedType(this.typeDescription("org.microbean.proxy.Proxy"),
                         List.of(superclass))
       .build();
 
@@ -129,12 +130,12 @@ public final class BBClientProxyClassGenerator {
                         List.of(TypeDescription.Generic.Builder.of(superclass.asGenericType()).asWildcardUpperBound()))
       .build();
 
-    // public final class Name extends Superclass implements ClientProxy<Superclass>, Interfaces { /* ... */ }
+    // public /* synthetic */ final class Name extends Superclass implements Proxy<Superclass>, Interfaces { /* ... */ }
     DynamicType.Builder<?> builder = new ByteBuddy()
       .subclass(superclass, NO_CONSTRUCTORS)
       .merge(List.of(PUBLIC, SYNTHETIC, TypeManifestation.FINAL))
       .name(name)
-      .implement(clientProxyType)
+      .implement(proxyType)
       .implement(interfaces)
 
       // private final Supplier<? extends Superclass> $proxiedSupplier;
@@ -157,7 +158,7 @@ public final class BBClientProxyClassGenerator {
                           .with("proxiedSupplier"))
                  .andThen(FieldAccessor.ofField("$proxiedSupplier").setsArgumentAt(0)))
 
-      // @Override // ClientProxy<Superclass>
+      // @Override // Proxy<Superclass>
       // public final Superclass $proxied() {
       //   return this.$proxiedSupplier.get();
       // }
@@ -166,12 +167,12 @@ public final class BBClientProxyClassGenerator {
                  .onField("$proxiedSupplier")
                  .withAssigner(Assigner.DEFAULT, Assigner.Typing.DYNAMIC))
 
-      // @Override // ClientProxy<Superclass>
+      // @Override // Proxy<Superclass>
       // public final Superclass $cast() {
-      //   return ClientProxy.super.$cast();
+      //   return Proxy.super.$cast();
       // }
       .defineMethod("$cast", superclass, PUBLIC, SYNTHETIC, MethodManifestation.FINAL)
-      .intercept(DefaultMethodCall.prioritize(clientProxyType.asErasure()))
+      .intercept(DefaultMethodCall.prioritize(proxyType.asErasure()))
 
       // Existing/inherited methods; remember that they form a stack, so the last .method() call below should be the
       // most specific. See https://bytebuddy.net/#members for details.
@@ -183,7 +184,7 @@ public final class BBClientProxyClassGenerator {
       .method(isBusinessMethod()
               .and(not(isJavaDeclaredMethod()
                        .and(isPackagePrivate()
-                            .or(hasOnePackagePrivateParameter())))))
+                            .or(hasOneOrMorePackagePrivateParameters())))))
       .intercept(invokeSelf()
                  .onMethodCall(invoke(named("$proxied")))
                  .withAllArguments())
@@ -231,7 +232,7 @@ public final class BBClientProxyClassGenerator {
    */
 
 
-  private static final ElementMatcher<MethodDescription> hasOnePackagePrivateParameter() {
+  private static final ElementMatcher<MethodDescription> hasOneOrMorePackagePrivateParameters() {
     return m -> {
       for (final ParameterDescription pd : m.getParameters()) {
         if (isPackagePrivate().matches(pd.getType())) {
@@ -249,16 +250,11 @@ public final class BBClientProxyClassGenerator {
   }
 
   private static final ElementMatcher.Junction<MethodDescription> isJavaDeclaredMethod() {
-    return isDeclaredBy(typeNameStartsWith("java."));
+    return isDeclaredBy(t -> t.getTypeName().startsWith("java."));
   }
 
   private final TypeDescription typeDescription(final String canonicalName) {
     return this.typePool.describe(canonicalName).resolve();
-  }
-
-  private static final ElementMatcher<TypeDefinition> typeNameStartsWith(final String prefix) {
-    Objects.requireNonNull(prefix, "prefix");
-    return t -> t.getTypeName().startsWith(prefix);
   }
 
 }

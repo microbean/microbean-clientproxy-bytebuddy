@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.microbean.construct.DefaultDomain;
 import org.microbean.construct.Domain;
 
-import org.microbean.reference.ClientProxy;
+import org.microbean.proxy.Proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -78,13 +78,13 @@ final class TestBBClientProxyClassGenerator {
     final Class<?> cls = dtl.getLoaded();
 
     assertEquals(proxyClassName, cls.getName());
-    assertTrue(ClientProxy.class.isAssignableFrom(cls));
+    assertTrue(Proxy.class.isAssignableFrom(cls));
     assertTrue(Gorp.class.isAssignableFrom(cls));
     assertTrue(Cloneable.class.isAssignableFrom(cls));
 
     final Constructor<?> c = cls.getDeclaredConstructor(Supplier.class);
     @SuppressWarnings("unchecked")
-    final ClientProxy<Gorp> cp = (ClientProxy<Gorp>)c.newInstance(s);
+    final Proxy<Gorp> cp = (Proxy<Gorp>)c.newInstance(s);
 
     assertTrue(cp instanceof Gorp);
     assertTrue(cp instanceof Cloneable);

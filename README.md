@@ -30,7 +30,7 @@ Client Proxy: Byte Buddy as a Maven dependency:
   <groupId>org.microbean</groupId>
   <artifactId>microbean-clientproxy-bytebuddy</artifactId>
   <!-- Always check https://search.maven.org/artifact/org.microbean/microbean-clientproxy-bytebuddy for up-to-date available versions. -->
-  <version>0.0.1</version>
+  <version>0.0.2</version>
 </dependency>
 ```
 
