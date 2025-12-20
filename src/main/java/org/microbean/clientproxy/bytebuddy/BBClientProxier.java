@@ -16,7 +16,12 @@ package org.microbean.clientproxy.bytebuddy;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 
+import java.util.Map;
 import java.util.Objects;
+
+import java.util.concurrent.ConcurrentHashMap;
+
+import java.util.function.Supplier;
 
 import net.bytebuddy.dynamic.DynamicType;
 
@@ -24,26 +29,35 @@ import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 
 import net.bytebuddy.pool.TypePool;
 
+import org.microbean.bean.Id;
+
 import org.microbean.construct.Domain;
 
-import org.microbean.reference.AbstractClientProxier;
-import org.microbean.reference.ProxySpecification;
+import org.microbean.proxy.AbstractToolkitProxier;
+import org.microbean.proxy.Proxy;
+import org.microbean.proxy.ProxySpecification;
+
+import org.microbean.reference.ClientProxier;
+import org.microbean.reference.ReferenceException;
+
+import static java.lang.invoke.MethodType.methodType;
 
 /**
- * An {@link AbstractClientProxier} that uses <a href="https://bytebuddy.net/#/">Byte Buddy</a> to {@linkplain
- * #generate(ProxySpecification) generate} {@linkplain org.microbean.reference.ClientProxy client proxies}.
+ * An {@link AbstractToolkitProxier} and {@link ClientProxier} that uses <a href="https://bytebuddy.net/#/">Byte
+ * Buddy</a> to {@linkplain #generate(ProxySpecification) generate} {@linkplain org.microbean.proxy.Proxy client
+ * proxies}.
  *
  * @author <a href="https://about.me/lairdnelson" target="_top">Laird Nelson</a>
  *
  * @see BBClientProxyClassGenerator
  */
-public final class BBClientProxier extends AbstractClientProxier<DynamicType.Unloaded<?>> {
+public final class BBClientProxier extends AbstractToolkitProxier<ProxySpecification, DynamicType.Unloaded<?>> implements ClientProxier {
 
+  private static final Map<ProxySpecification, Object> clientProxyInstances = new ConcurrentHashMap<>();
+  
   private final TypeDefinitions tds;
 
   private final BBClientProxyClassGenerator g;
-
-  private static final Lookup lookup = MethodHandles.lookup(); // or instance variable?
 
   /**
    * Creates a new {@link BBClientProxier}.
@@ -94,11 +108,16 @@ public final class BBClientProxier extends AbstractClientProxier<DynamicType.Unl
   public BBClientProxier(final Domain domain,
                          final TypeDefinitions tds,
                          final BBClientProxyClassGenerator g) {
-    super(domain);
+    super(domain, MethodHandles.lookup());
     this.tds = Objects.requireNonNull(tds, "tds");
     this.g = Objects.requireNonNull(g, "g");
   }
 
+  @Override // ClientProxier
+  public <R> R clientProxy(final Id id, final Supplier<? extends R> instanceSupplier) {
+    return this.proxy(new ProxySpecification(this.domain(), id), instanceSupplier).$cast();
+  }
+  
   @Override // AbstractClientProxier<DynamicType.Unloaded<?>>
   protected final DynamicType.Unloaded<?> generate(final ProxySpecification ps) {
     return
@@ -107,19 +126,34 @@ public final class BBClientProxier extends AbstractClientProxier<DynamicType.Unl
                       ps.interfaces().stream().map(this.tds::typeDescriptionGeneric).toList());
   }
 
+  @Override // AbstractToolkitProxier<ProxySpecification, DynamicType.Unloaded<?>>
+  @SuppressWarnings("unchecked")
+  public final <R> Proxy<R> proxy(final ProxySpecification ps, final Supplier<? extends R> instanceSupplier) {
+    return (Proxy<R>)clientProxyInstances.computeIfAbsent(ps, ps0 -> {
+        try {
+          final Class<?> proxyClass = this.proxyClass(ps);
+          this.getClass().getModule().addReads(proxyClass.getModule());
+          return
+            this.lookup(proxyClass).findConstructor(proxyClass, methodType(void.class, Supplier.class))
+            .asType(methodType(Object.class, Supplier.class))
+            .invokeExact(instanceSupplier);
+        } catch (final RuntimeException | Error e) {
+          throw e;
+        } catch (final Throwable e) {
+          throw new ReferenceException(e.getMessage(), e);
+        }
+      });
+  }
+
+
   @Override // AbstractClientProxier<DynamicType.Unloaded<?>>
-  protected final Class<?> clientProxyClass(final DynamicType.Unloaded<?> dtu, final ClassLoader cl)
+  protected final Class<?> proxyClass(final DynamicType.Unloaded<?> dtu, final ClassLoader cl)
     throws ClassNotFoundException {
     // getTypeName() invoked on a TypeDescription will be its binary name (required by Class#forName(String)):
     // https://javadoc.io/static/net.bytebuddy/byte-buddy/1.17.3/net/bytebuddy/description/type/TypeDefinition.html#getTypeName--
     final String binaryName = dtu.getTypeDescription().getSuperClass().asErasure().getTypeName();
     final Class<?> superclass = Class.forName(binaryName, false, cl);
     return dtu.load(superclass.getClassLoader(), ClassLoadingStrategy.UsingLookup.of(lookup(superclass))).getLoaded();
-  }
-
-  @Override // AbstractClientProxier<DynamicType.Unloaded<?>>
-  protected final Lookup lookup(final Class<?> c) {
-    return lookup.in(c);
   }
 
 }

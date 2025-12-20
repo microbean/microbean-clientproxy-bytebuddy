@@ -24,37 +24,43 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.microbean.attributes.Attributes;
 
-import org.microbean.bean.AttributedType;
+import org.microbean.assign.AttributedType;
+import org.microbean.assign.Selectable;
+import org.microbean.assign.Selectables;
+
 import org.microbean.bean.Bean;
+import org.microbean.bean.BeanQualifiersMatcher;
 import org.microbean.bean.BeanTypeList;
+import org.microbean.bean.BeanTypeMatcher;
 import org.microbean.bean.BeanTypes;
+import org.microbean.bean.Beans;
 import org.microbean.bean.Constant;
 import org.microbean.bean.Id;
-import org.microbean.bean.Request;
-import org.microbean.bean.Selectable;
 import org.microbean.bean.IdMatcher;
-import org.microbean.bean.BeanTypeMatcher;
-import org.microbean.bean.InterceptorBindingsMatcher;
-import org.microbean.bean.BeanQualifiersMatcher;
-import org.microbean.bean.Reducer;
-import org.microbean.bean.RankedReducer;
-import org.microbean.bean.Reducible;
+import org.microbean.bean.Qualifiers;
 
 import org.microbean.construct.DefaultDomain;
 import org.microbean.construct.Domain;
 
-import org.microbean.reference.ClientProxy;
-import org.microbean.reference.DefaultRequest;
+import org.microbean.producer.InterceptorBindingsMatcher;
+
+import org.microbean.proxy.Proxy;
+
+import org.microbean.reference.Instances;
+import org.microbean.reference.Request;
 
 import org.microbean.scopelet.MapBackedScopelet;
 import org.microbean.scopelet.NoneScopelet;
 import org.microbean.scopelet.ScopedInstances;
 import org.microbean.scopelet.Scopelet;
+import org.microbean.scopelet.Scopes;
 import org.microbean.scopelet.SingletonScopelet;
 
 import static java.lang.constant.ConstantDescs.BSM_INVOKE;
@@ -66,24 +72,20 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import static org.microbean.assign.Qualifiers.anyQualifier;
-import static org.microbean.assign.Qualifiers.anyAndDefaultQualifiers;
-import static org.microbean.assign.Qualifiers.defaultQualifier;
-import static org.microbean.assign.Qualifiers.defaultQualifiers;
-import static org.microbean.assign.Qualifiers.qualifier;
-
-import static org.microbean.bean.Beans.cachingSelectableOf;
-
-import static org.microbean.scopelet.Scopelet.APPLICATION_ID;
-import static org.microbean.scopelet.Scopelet.NONE_ID;
-import static org.microbean.scopelet.Scopelet.SCOPE;
-import static org.microbean.scopelet.Scopelet.SINGLETON_ID;
+import static org.microbean.bean.Selectables.ambiguityReducing;
+import static org.microbean.bean.Selectables.typesafeFiltering;
 
 final class TestBBClientProxier {
 
   private Domain domain;
 
-  private Request<?> r;
+  private Qualifiers qualifiers;
+
+  private Request<Void, Void> r;
+
+  private Instances instances;
+
+  private Bean<?> gorpBean;
 
   private TestBBClientProxier() {
     super();
@@ -93,44 +95,111 @@ final class TestBBClientProxier {
   final void setup() {
     this.domain = new DefaultDomain();
 
-    // Rule: your parent scope goes on the Any qualifier
-    final Attributes anyQualifierWithSingletonParentScope = Attributes.of("Any", qualifier(), SINGLETON_ID);
     final BeanTypes beanTypes = new BeanTypes(domain);
+
+    this.qualifiers = new Qualifiers();
+
+    final Scopes scopes = new Scopes(qualifiers);
+
+    // TODO: all this scopelet tunneling stuff is a specific instance of a general case that is already handle-able. If
+    // you conceive of a Factory that can "create" (cache and return) all kinds of objects, and can use this tunneling
+    // mechanism to look it up, then you don't need a Scopelet type.
+
+    // Rule: your parent scope goes on the Any qualifier. All beans have the Any qualifier (normally) so this is a
+    // convenient way to "tunnel" a qualifier/scope without screwing up typesafe resolution and without requiring
+    // something stupid like BeanAttributes in CDI. You just add meta-annotations.
+    final Attributes anyQualifierWithSingletonParentScope = Attributes.of("Any", qualifiers.qualifier(), scopes.singleton());
+
+    final Bean<?> domainBean =
+      new Bean<>(new Id(beanTypes.beanTypes(domain.declaredType(DefaultDomain.class.getCanonicalName())),
+                        List.of(anyQualifierWithSingletonParentScope, qualifiers.defaultQualifier())),
+                 c -> domain);
+
+    final Bean<?> beanTypesBean =
+      new Bean<>(new Id(beanTypes.beanTypes(domain.declaredType(BeanTypes.class.getCanonicalName())),
+                        List.of(anyQualifierWithSingletonParentScope, qualifiers.defaultQualifier())),
+                 c -> beanTypes);
+
+    // TODO: we should do this for all the matchers, too, e.g. BeanTypeMatcher, BeanQualifiersMatcher,
+    // EventTypesMatcher, etc. etc.
+    //
+    // BBClientProxier too
+    //
+    // Then all these handcrafted beans could say what they need as dependencies and assign them
+
+    final Attributes application =
+      Attributes.of("Application",
+                    scopes.normal(),
+                    Map.of(),
+                    Map.of("Application",
+                           List.of(qualifiers.qualifier(),
+                                   scopes.scope(),
+                                   scopes.singleton())));
+
+    // Set up scopes.
     final Bean<?> applicationAndSingletonScopeletBean =
       new Bean<>(new Id(beanTypes.beanTypes(domain.declaredType(SingletonScopelet.class.getCanonicalName())),
-                        // Rule: APPLICATION_ID and SINGLETON_ID function here as qualifiers
-                        List.of(anyQualifierWithSingletonParentScope, APPLICATION_ID, SINGLETON_ID)),
-                 new SingletonScopelet(domain));
+                        // Rule: application and scopes.singleton() function here as qualifiers
+                        List.of(anyQualifierWithSingletonParentScope, application, scopes.singleton())),
+                 new SingletonScopelet());
+
     final Bean<?> noneScopeletBean =
       new Bean<>(new Id(beanTypes.beanTypes(domain.declaredType(NoneScopelet.class.getCanonicalName())),
                         // Rule: NONE_ID functions here as a qualifier
-                        List.of(anyQualifierWithSingletonParentScope, NONE_ID)),
-                 new NoneScopelet(domain));
-    
-    final Selectable<AttributedType, Bean<?>> selectable =
-      cachingSelectableOf(List.of(noneScopeletBean,
-                                  applicationAndSingletonScopeletBean,
-                                  new Bean<>(new Id(new BeanTypes(domain).beanTypes(domain.declaredType(Gorp.class.getCanonicalName())),
-                                                    List.of(Attributes.of("Any", qualifier(), APPLICATION_ID), defaultQualifier())),
-                                             r -> new Gorp())),
-                          new IdMatcher(new BeanQualifiersMatcher(),
-                                        new InterceptorBindingsMatcher(),
-                                        new BeanTypeMatcher(domain)),
-                          Map.of());
+                        List.of(anyQualifierWithSingletonParentScope, scopes.none())),
+                 new NoneScopelet());
+
+    // Set up the user-supplied bean. Note that it is in application scope.
+    this.gorpBean =
+      new Bean<>(new Id(new BeanTypes(domain).beanTypes(domain.declaredType(Gorp.class.getCanonicalName())),
+                        List.of(Attributes.of("Any", qualifiers.qualifier(), application), qualifiers.defaultQualifier())),
+                 c -> new Gorp());
+
+    // In a production version of all this we need to allow for supplying a preinitialized selection cache. We will
+    // supply an empty one.
+    final Map<AttributedType, List<Bean<?>>> selectionCache = new ConcurrentHashMap<>();
+
+    // See https://jakarta.ee/specifications/cdi/4.1/jakarta-cdi-spec-4.1#unsatisfied_and_ambig_dependencies
+    Selectable<AttributedType, Bean<?>> selectable =
+      ScopedInstances.selectableOf(domain,
+                                   Selectables.<AttributedType, Bean<?>>caching(ambiguityReducing(typesafeFiltering(List.of(domainBean,
+                                                                                                                            beanTypesBean,
+                                                                                                                            noneScopeletBean,
+                                                                                                                            applicationAndSingletonScopeletBean,
+                                                                                                                            this.gorpBean),
+                                                                                                                    new IdMatcher(new BeanTypeMatcher(domain),
+                                                                                                                                  new BeanQualifiersMatcher(qualifiers),
+                                                                                                                                  new InterceptorBindingsMatcher())),
+                                                                                                  org.microbean.bean.Ranked::alternate,
+                                                                                                  org.microbean.bean.Ranked::rank
+                                                                                                  ),
+                                                                                selectionCache::computeIfAbsent));
+
+    this.instances = new ScopedInstances(domain, qualifiers, scopes);
     this.r =
-      new DefaultRequest<Void>(selectable,
-                               ScopedInstances.reducible(domain, selectable),
-                               new ScopedInstances(domain),
-                               new BBClientProxier(domain));
+      new Request<Void, Void>(this.domain,
+                              selectable,
+                              this.instances,
+                              new BBClientProxier(domain));
+  }
+
+  private static final boolean alternate(final Bean<?> b) {
+    final Id id = b.id();
+    return false;
+  }
+
+  @Test
+  final void testGorpIsProxiable() {
+    assertTrue(this.instances.proxiable(this.gorpBean.id()));
   }
 
   @Test
   final void testClientProxySunnyDay() {
-    final Gorp g = this.r.reference(new AttributedType(this.domain.declaredType(Gorp.class.getCanonicalName()), defaultQualifiers()));
-    assertTrue(g instanceof ClientProxy<?>, String.valueOf(g));
+    final Gorp g = this.r.<Gorp>reference(new AttributedType(this.domain.declaredType(Gorp.class.getCanonicalName()), qualifiers.defaultQualifiers()));
+    assertTrue(g instanceof Proxy<?>, String.valueOf(g));
     assertTrue(g.getClass().isSynthetic());
     @SuppressWarnings("unchecked")
-    final Gorp proxied = ((ClientProxy<Gorp>)g).$proxied();
+    final Gorp proxied = ((Proxy<Gorp>)g).$proxied();
     assertNotSame(g, proxied);
     assertSame(Gorp.class, proxied.getClass());
     assertEquals("bar", g.bar());
@@ -148,7 +217,7 @@ final class TestBBClientProxier {
       super();
     }
 
-    @Override
+    @Override // Frobber
     public String frob() {
       return "frob";
     }

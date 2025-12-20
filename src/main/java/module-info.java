@@ -13,7 +13,7 @@
  */
 
 /**
- * Provides packages related to implementing {@linkplain org.microbean.reference.ClientProxy <dfn>client proxies</dfn>}
+ * Provides packages related to implementing {@linkplain org.microbean.proxy.Proxy <dfn>client proxies</dfn>}
  * using <a href="https://bytebuddy.net/#/">Byte Buddy</a>.
  *
  * @author <a href="https://about.me/lairdnelson" target="_parent">Laird Nelson</a>
@@ -23,9 +23,10 @@ module org.microbean.clientproxy.bytebuddy {
   exports org.microbean.clientproxy.bytebuddy;
 
   requires transitive net.bytebuddy;
-
+  requires org.microbean.assign;
   requires transitive org.microbean.bean;
-  requires transitive org.microbean.construct;
+  requires org.microbean.construct;
+  requires transitive org.microbean.proxy;
   requires transitive org.microbean.reference;
 
 }
