@@ -1,6 +1,6 @@
 /* -*- mode: Java; c-basic-offset: 2; indent-tabs-mode: nil; coding: utf-8-unix -*-
  *
- * Copyright © 2025 microBean™.
+ * Copyright © 2025–2026 microBean™.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -42,6 +42,8 @@ import org.microbean.reference.ReferenceException;
 
 import static java.lang.invoke.MethodType.methodType;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * An {@link AbstractToolkitProxier} and {@link ClientProxier} that uses <a href="https://bytebuddy.net/#/">Byte
  * Buddy</a> to {@linkplain #generate(ProxySpecification) generate} {@linkplain org.microbean.proxy.Proxy client
@@ -54,7 +56,7 @@ import static java.lang.invoke.MethodType.methodType;
 public final class BBClientProxier extends AbstractToolkitProxier<ProxySpecification, DynamicType.Unloaded<?>> implements ClientProxier {
 
   private static final Map<ProxySpecification, Object> clientProxyInstances = new ConcurrentHashMap<>();
-  
+
   private final TypeDefinitions tds;
 
   private final BBClientProxyClassGenerator g;
@@ -62,7 +64,7 @@ public final class BBClientProxier extends AbstractToolkitProxier<ProxySpecifica
   /**
    * Creates a new {@link BBClientProxier}.
    *
-   * @param domain a {@link Domain}; must not be {@code null}
+   * @param domain a non-{@code null} {@link Domain}
    *
    * @exception NullPointerException if any argument is {@code null}
    *
@@ -77,9 +79,9 @@ public final class BBClientProxier extends AbstractToolkitProxier<ProxySpecifica
   /**
    * Creates a new {@link BBClientProxier}.
    *
-   * @param domain a {@link Domain}; must not be {@code null}
+   * @param domain a non-{@code null} {@link Domain}
    *
-   * @param typePool a {@link TypePool}; must not be {@code null}
+   * @param typePool a non-{@code null} {@link TypePool}
    *
    * @exception NullPointerException if any argument is {@code null}
    *
@@ -97,27 +99,27 @@ public final class BBClientProxier extends AbstractToolkitProxier<ProxySpecifica
   /**
    * Creates a new {@link BBClientProxier}.
    *
-   * @param domain a {@link Domain}; must not be {@code null}
+   * @param domain a non-{@code null} {@link Domain}; must not be {@code null}
    *
-   * @param tds a {@link TypeDefinitions}; must not be {@code null}
+   * @param tds a non-{@code null} {@link TypeDefinitions}
    *
-   * @param g a {@link BBClientProxyClassGenerator}; must not be {@code null}
+   * @param g a non-{@code nulll} {@link BBClientProxyClassGenerator}
    *
    * @exception NullPointerException if any argument is {@code null}
    */
   public BBClientProxier(final Domain domain,
-                         final TypeDefinitions tds,
-                         final BBClientProxyClassGenerator g) {
+                          final TypeDefinitions tds,
+                          final BBClientProxyClassGenerator g) {
     super(domain, MethodHandles.lookup());
-    this.tds = Objects.requireNonNull(tds, "tds");
-    this.g = Objects.requireNonNull(g, "g");
+    this.tds = requireNonNull(tds, "tds");
+    this.g = requireNonNull(g, "g");
   }
 
   @Override // ClientProxier
   public <R> R clientProxy(final Id id, final Supplier<? extends R> instanceSupplier) {
     return this.proxy(new ProxySpecification(this.domain(), id), instanceSupplier).$cast();
   }
-  
+
   @Override // AbstractClientProxier<DynamicType.Unloaded<?>>
   protected final DynamicType.Unloaded<?> generate(final ProxySpecification ps) {
     return
@@ -144,7 +146,6 @@ public final class BBClientProxier extends AbstractToolkitProxier<ProxySpecifica
         }
       });
   }
-
 
   @Override // AbstractClientProxier<DynamicType.Unloaded<?>>
   protected final Class<?> proxyClass(final DynamicType.Unloaded<?> dtu, final ClassLoader cl)

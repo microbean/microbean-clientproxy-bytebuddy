@@ -1,6 +1,6 @@
 /* -*- mode: Java; c-basic-offset: 2; indent-tabs-mode: nil; coding: utf-8-unix -*-
  *
- * Copyright © 2025 microBean™.
+ * Copyright © 2025–2026 microBean™.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -35,7 +35,6 @@ import net.bytebuddy.implementation.DefaultMethodCall;
 import net.bytebuddy.implementation.HashCodeMethod;
 import net.bytebuddy.implementation.EqualsMethod;
 import net.bytebuddy.implementation.FieldAccessor;
-import net.bytebuddy.implementation.MethodCall;
 
 import net.bytebuddy.implementation.bytecode.assign.Assigner;
 
@@ -45,13 +44,11 @@ import net.bytebuddy.pool.TypePool;
 
 import static java.util.Objects.requireNonNull;
 
-import static net.bytebuddy.description.modifier.Ownership.STATIC;
 import static net.bytebuddy.description.modifier.SyntheticState.SYNTHETIC;
 import static net.bytebuddy.description.modifier.Visibility.PRIVATE;
 import static net.bytebuddy.description.modifier.Visibility.PUBLIC;
 
 import static net.bytebuddy.description.type.TypeDescription.Generic.Builder.parameterizedType;
-import static net.bytebuddy.description.type.TypeDescription.Generic.Builder.typeVariable;
 
 import static net.bytebuddy.dynamic.scaffold.subclass.ConstructorStrategy.Default.NO_CONSTRUCTORS;
 
@@ -59,20 +56,16 @@ import static net.bytebuddy.implementation.MethodCall.invoke;
 import static net.bytebuddy.implementation.MethodCall.invokeSelf;
 
 import static net.bytebuddy.matcher.ElementMatchers.any;
-import static net.bytebuddy.matcher.ElementMatchers.hasParameters;
 import static net.bytebuddy.matcher.ElementMatchers.isConstructor;
 import static net.bytebuddy.matcher.ElementMatchers.isDeclaredBy;
 import static net.bytebuddy.matcher.ElementMatchers.isEquals;
 import static net.bytebuddy.matcher.ElementMatchers.isFinal;
 import static net.bytebuddy.matcher.ElementMatchers.isHashCode;
 import static net.bytebuddy.matcher.ElementMatchers.isPackagePrivate;
-import static net.bytebuddy.matcher.ElementMatchers.isPublic;
 import static net.bytebuddy.matcher.ElementMatchers.isToString;
 import static net.bytebuddy.matcher.ElementMatchers.isVirtual;
-import static net.bytebuddy.matcher.ElementMatchers.nameStartsWith;
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.not;
-import static net.bytebuddy.matcher.ElementMatchers.returns;
 import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
 import static net.bytebuddy.matcher.ElementMatchers.takesNoArguments;
 
@@ -89,7 +82,7 @@ public final class BBClientProxyClassGenerator {
   /**
    * Creates a new {@link BBClientProxyClassGenerator}.
    *
-   * @param typePool a {@link TypePool} (normally a {@link TypeElementTypePool}); must not be {@code null}
+   * @param typePool a non-{@code null} {@link TypePool} (normally a {@link TypeElementTypePool})
    *
    * @exception NullPointerException if {@code typePool} is {@code null}
    */
@@ -101,14 +94,14 @@ public final class BBClientProxyClassGenerator {
   /**
    * Creates and returns a new {@link DynamicType.Unloaded} representing a client proxy class.
    *
-   * @param name the name of the client proxy class; must not be {@code null}; must be a valid Java class <a
+   * @param name the non-{@code null} name of the client proxy class; must be a valid Java class <a
    * href="https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/lang/ClassLoader.html#binary-name">binary
    * name</a>
    *
-   * @param superclass a {@link TypeDefinition} representing a superclass; must not be {@code null}
+   * @param superclass a non-{@code null} {@link TypeDefinition} representing a superclass
    *
-   * @param interfaces a {@link Collection} of {@link TypeDefinition}s representing interfaces the client proxy class
-   * will implement; must not be {@code null}
+   * @param interfaces a non-{@code null} {@link Collection} of {@link TypeDefinition}s representing interfaces the
+   * client proxy class will implement
    *
    * @return a new, non-{@code null} {@link DynamicType.Unloaded} representing a client proxy class
    *
