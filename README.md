@@ -1,7 +1,9 @@
 # microBean™ Client Proxy: Byte Buddy
 
 [![Maven
-Central](https://img.shields.io/maven-central/v/org.microbean/microbean-clientproxy-bytebuddy.svg?label=Maven%20Central)](https://search.maven.org/artifact/org.microbean/microbean-clientproxy-bytebuddy)
+Central](https://img.shields.io/maven-central/v/org.microbean/microbean-clientproxy-bytebuddy.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/org.microbean/microbean-clientproxy-bytebuddy)
+
+![0% AI](https://img.shields.io/badge/%F0%9F%A4%96_AI-0%25_%F0%9F%8C%BC-brightgreen)
 
 The microBean™ Client Proxy: Byte Buddy project provides classes and interfaces assisting with implementing <a
 href="https://microbean.github.io/microbean-reference/apidocs/org.microbean.reference/org/microbean/reference/ClientProxy.html"><dfn>client
@@ -22,15 +24,16 @@ microBean™ Client Proxy: Byte Buddy requires a Java runtime of version 19 or h
 
 # Installation
 
-microBean™ Client Proxy: Byte Buddy is available on [Maven Central](https://search.maven.org/).  Include microBean™
-Client Proxy: Byte Buddy as a Maven dependency:
+microBean™ Client Proxy: Byte Buddy is available on [Maven
+Central](https://central.sonatype.com/artifact/org.microbean/microbean-clientproxy-bytebuddy). Include microBean™ Client
+Proxy: Byte Buddy as a Maven dependency:
 
 ```xml
 <dependency>
   <groupId>org.microbean</groupId>
   <artifactId>microbean-clientproxy-bytebuddy</artifactId>
-  <!-- Always check https://search.maven.org/artifact/org.microbean/microbean-clientproxy-bytebuddy for up-to-date available versions. -->
-  <version>0.0.2</version>
+  <!-- Always check https://central.sonatype.com/artifact/org.microbean/microbean-clientproxy-bytebuddy for up-to-date available versions. -->
+  <version>0.0.3</version>
 </dependency>
 ```
 
